@@ -1,0 +1,769 @@
+# Import Required Libraries
+import pandas as pd
+import numpy as np
+import pickle
+import io
+import time
+import math
+import random
+import seaborn as sns
+from scipy.stats import pearsonr, jarque_bera
+import matplotlib.pyplot as plt
+import streamlit as st
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn import tree
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from PIL import Image
+
+# Page Configuration
+st.set_page_config(layout="wide", page_title="Portofolio Project", page_icon=":heart:")
+st.sidebar.title("Navigation")
+nav = st.sidebar.selectbox("Go to", ("Home", "Tools dan Software", "Data Collecting", "Exploratory Data Analysis", "Data Preprocessing", "Feature Engineering", "Modelling", "Prediction", "About"))
+
+st.markdown(
+    """
+    <style>
+    .justify-text {
+        text-align: justify;
+    }
+    .center-links {
+        text-align: center;
+        line-height: 1.6;
+    }
+    .section-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-top: 2rem;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# Dataset Page
+url = "https://storage.googleapis.com/dqlab-dataset/heart_disease.csv"
+df = pd.read_csv(url)
+
+# Function Heart Disease Prediction
+def heart():
+    st.write("""
+        This app predicts the **Heart Disease**
+
+        Data obtained from the [Heart Disease dataset](https://archive.ics.uci.edu/dataset/45/heart+disease) by UCIML. 
+        """)
+    st.sidebar.header('User Input Features:')
+    uploaded_file = st.sidebar.file_uploader("Upload your input CSV file", type=["csv"])
+    if uploaded_file is not None:
+        input_df = pd.read_csv(uploaded_file)
+    else:
+        def user_input_manual():
+            st.sidebar.header("Manual Input")
+            age = st.sidebar.slider("Age", 0, 100, 25)
+            cp = st.sidebar.selectbox("Chest Pain Type", ("Typical Angina", "Atypical Angina", "Non-anginal Pain", "Asymptomatic"))
+            if cp == "Typical Angina":
+                cp = 1
+            elif cp == "Atypical Angina":
+                cp = 2
+            elif cp == "Non-anginal Pain":
+                cp = 3
+            elif cp == "Asymptomatic":
+                cp = 4
+            thalach = st.sidebar.slider("Maximum Heart Rate Achieved", 0, 200, 100)
+            slope = st.sidebar.selectbox("Slope", ("Upsloping", "Flat", "Downsloping"))
+            if slope == "Upsloping":
+                slope = 1
+            elif slope == "Flat":
+                slope = 2
+            elif slope == "Downsloping":
+                slope = 3
+            ca = st.sidebar.slider("Number of Major Vessels", 0, 4, 0)
+            oldpeak = st.sidebar.slider("ST Depression Induced by Exercise Relative to Rest", 0.0, 10.0, 0.0)
+            exang = st.sidebar.selectbox("Exercise Induced Angina", ("Yes", "No"))
+            if exang == "Yes":
+                exang = 1
+            elif exang == "No":
+                exang = 0
+            thal = st.sidebar.selectbox("Thal", ("Normal", "Fixed Defect", "Reversable Defect"))
+            if thal == "Normal":
+                thal = 1
+            elif thal == "Fixed Defect":
+                thal = 2
+            elif thal == "Reversable Defect":
+                thal = 3
+            sex = st.sidebar.selectbox("Sex", ("Male", "Female"))
+            if sex == "Male":
+                sex = 1
+            else:
+                sex =0
+            data = {'cp': cp,
+                    'thalach': thalach,
+                    'slope': slope,
+                    'oldpeak': oldpeak,
+                    'exang': exang,
+                    'ca': ca,
+                    'thal': thal,
+                    'sex': sex,
+                    'age': age}
+            features = pd.DataFrame(data, index=[0])
+            return features
+
+        input_df = user_input_manual()
+
+    # Data df
+    st.image('heart-disease.jpg', width=700)
+
+    if st.sidebar.button("GO!"):
+        df = input_df.copy()
+        st.write(df)
+        model = pickle.load(open('model/generate_heart_disease.pkl', 'rb'))
+        prediction = model.predict(df)
+        result = ['No Heart Disease' if prediction == 0 else 'Heart Disease']
+        with st.spinner('Wait for it...'):
+            time.sleep(3)
+            st.success('This patient has {}'.format(result[0]))
+            st.balloons()
+# Home Page
+if nav == "Home":
+    st.title("Portofolio Project - Heart Disease Prediction")
+    link_dqlab = '<a href="https://dqlab.id">DQLAB Academy</a>'
+    perkenalan1 = '''
+    Halo Sobat semua, kenalin nama saya Pujo Satrianto. Saya merupakan ASN di salah satu instansi pemerintah
+    di Indonesia. Kali ini saya mencoba menyajikan project portofolio yang saya buat sebagai salah satu syarat
+    kelulusan pada kelas Machine Learning & AI for Beginner di 
+    '''
+    perkenalan2 = '''Project kali ini yaitu prediksi
+    penyakit jantung menggunakan algoritma Machine Learning yang diimplementasikan dengan Streamlit agar
+    tampilannya interaktif dan mudah dipahami siapa saja. Semoga project sederhana ini bisa bermanfaat ya, Sobat!
+    '''
+    st.write('''
+    **Bootcamp Machine Learning & AI for Beginner [DQLAB](https://dqlab.id)**
+    ''')
+    st.markdown(f'<p class="justify-text">{perkenalan1} {link_dqlab}. {perkenalan2}</p>', unsafe_allow_html=True)
+
+    st.image("https://img.freepik.com/free-photo/top-view-world-heart-day-concept-with-stethoscope_23-2148631023.jpg?t=st=1761747441~exp=1761751041~hmac=f764d703351a223d94077c3b6653735957caf438d66ad6bd1da21c4a6f2a8ba4&w=1480",
+             width=700, caption="www.freepik.com")
+    
+    paragraf1 = '''
+    Sobat, penyakit jantung itu udah jadi momok yang serius banget di Indonesia! Berdasarkan data
+    Kementerian Kesehatan terbaru tahun 2025, ternyata DIY jadi jurang teratas dengan prevalensi
+    penyakit jantung mencapai 1,67%, disusul Papua Tengah (1,65%) dan DKI Jakarta (1,56%). Yang
+    bikin miris, data Survei Kesehatan Indonesia (SKI) 2023 menunjukkan kelompok usia 25-34 tahun
+    malah jadi yang paling banyak kena penyakit jantung dengan 140.206 orang, bahkan ngalahin
+    kelompok usia lebih tua. Gaya hidup anak muda sekarang yang serba instan, sering stress, jarang
+    olahraga, plus kebiasaan ngerokok dan pola makan yang sembarangan jadi biang keladinya.
+    Lebih parahnya lagi, dari data BPJS Kesehatan 2023, klaim untuk penyakit jantung iskemik aja
+    udah nyentuh angka 20 juta kasus dengan biaya hampir Rp17,6 triliun!
+    '''
+
+    paragraf2 = '''
+    Nah, di sinilah pentingnya deteksi dini yang bisa jadi game changer untuk mencegah hal-hal yang 
+    nggak diinginkan. Machine learning sebagai teknologi yang lagi hits sekarang ternyata bisa 
+    dimanfaatin banget untuk bikin sistem prediksi risiko penyakit jantung yang accessible dan user- 
+    friendly. Project portfolio ini bakal menggunakan dataset klasik tapi powerful, yaitu dataset Heart
+    Disease, yang diimplementasikan lewat Streamlit biar tampilannya interactive dan mudah
+    dipahami siapa aja. Dengan memanfaatkan algoritma machine learning, kita bisa menganalisa pola-
+    pola kompleks dari parameter medis seperti tekanan darah, kolesterol, detak jantung, dan faktor
+    risiko lainnya untuk memprediksi kemungkinan seseorang terkena penyakit jantung. Harapannya,
+    tool ini bisa jadi screening awal yang membantu masyarakat lebih aware sama kondisi kesehatan
+    jantung mereka, sekaligus nunjukin gimana teknologi AI bisa berkontribusi nyata dalam dunia
+    healthcare Indonesia yang lagi butuh solusi inovatif dan terjangkau. Dataset yang digunakan adalah
+    dataset penyakit jantung dari
+    '''
+
+    # Buat variabel untuk link HTML agar lebih rapi
+    link_html = '<a href="https://archive.ics.uci.edu/ml/datasets/heart+Disease">UCI Machine Learning Repository</a>'
+
+    st.write('''
+    **Project Overview**
+    ''')
+    st.markdown(f'<p class="justify-text">{paragraf1}</p>', unsafe_allow_html=True)
+    st.write('''
+    [Sumber] :
+    1. https://jogjapolitan.harianjogja.com/read/2025/10/10/510/1231374/diy-catat-prevalensi-penyakit-jantung-167-persen-lampaui-angka-nasional
+    2. https://data.goodstats.id/statistic/pasien-jantung-di-indonesia-didominasi-usia-produktif-79yo9
+    3. https://www.cnnindonesia.com/gaya-hidup/20251007131438-255-1281868/diy-catat-kasus-penyakit-jantung-tertinggi-di-indonesia
+    4. https://www.rsi.co.id/informasi/artikel/hari-jantung-sedunia-2025-waktunya-kenali-penyakit-jantung-pembunuh-nomor-1-di-dunia
+    ''')
+    st.markdown(f'<p class="justify-text">{paragraf2} {link_html}.</p>', unsafe_allow_html=True)
+
+
+    st.write('''
+    **Project Objective**
+    
+    Tujuan dari project ini adalah untuk melakukan prediksi apakah seseorang beresiko memiliki penyakit jantung berdasarkan
+    pemodelan yang telah dilakukan menggunakan Machine Learning.
+    ''')
+
+elif nav == "Tools dan Software":
+    st.title("Tools dan Software yang Digunakan")
+    st.write('''
+    Dalam project prediksi penyakit jantung ini, beberapa tools dan software yang digunakan meliputi:
+    
+    1. **Python**: Bahasa pemrograman utama yang digunakan untuk analisis data, pemodelan machine learning, dan pengembangan aplikasi.
+    2. **Pandas**: Library Python yang digunakan untuk manipulasi dan analisis data, termasuk pembersihan data dan eksplorasi data.
+    3. **NumPy**: Library Python yang digunakan untuk komputasi numerik dan operasi array.
+    4. **Scikit-learn**: Library machine learning yang digunakan untuk membangun dan mengevaluasi model prediksi penyakit jantung.
+    5. **Streamlit**: Framework open-source yang digunakan untuk membuat aplikasi web interaktif untuk menampilkan hasil prediksi model.
+    6. **Google Colab**: Platform berbasis cloud yang digunakan untuk menjalankan kode Python dan melakukan eksperimen machine learning tanpa perlu konfigurasi lokal.
+    ''')
+
+elif nav == 'Data Collecting':
+    st.title("Dataset Collecting")
+    st.write('''
+    **Dataset Overview**
+    
+    Jadi sob, dalam project Machine Learning pasti akan diawali dengan mengumpulkan data (Data Collecting).
+    Pengumpulan data (Data Collecting) ini bisa dilakukan dengan berbagai cara mulai dari pengukuran atau
+    akuisisi data secara langsung sampai dengan memakai dataset yang sudah tersedia secara global dan gratis.
+    Seperti pada project kali ini, karena saya bukan seorang tenaga kesehatan maka pengumpulan data dilakukan
+    dengan mengambil dataset penyakit jantung dari [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/heart+Disease).
+    Dataset ini punya 1025 baris dan 13 kolom fitur dan 1 kolom target. Kolom `target` berfungsi untuk menandai
+    kondisi kesehatan jantung seseorang, di mana jika bernilai `1` berarti **terindikasi punya penyakit jantung**,
+    sedangkan nilai `0` berarti **tidak terindikasi punya penyakit jantung**.  \n
+    Yuk kita lihat bagaimana tampilan datasetnya di bawah ini dengan menampilkan 20 baris data teratas.
+    ''')
+
+    #show dataset head
+    st.dataframe(df.head(20))
+
+    st.write('''
+    Nah, sekarang yuk kita coba pahami deskripsi dari tiap kolom/fitur dari dataset ini.
+    
+    1. `age` : usia dalam tahun (umur)
+    2. `sex` : jenis kelamin (1 = laki-laki; 0 = perempuan)
+    3. `cp` : jenis nyeri dada yang dirasakan oleh pasien dengan 4 nilai kategori yang mungkin:
+        - 0: typical angina
+        - 1: atypical angina
+        - 2: non-anginal pain
+        - 3: asymptomatic
+    4. `trestbps` : tekanan darah pasien pada saat istirahat, diukur dalam mmHg (milimeter air raksa (merkuri))
+    5. `chol` : kadar kolesterol serum dalam darah pasien, diukur dalam mg/dl (miligram per desiliter)
+    6. `fbs` : kadar gula darah pasien saat puasa (belum makan)
+        - 0 : tidak lebih dari 120 mg/dl
+        - 1 : lebih dari 120 mg/dl
+    7. `restecg` : hasil elektrokardiogram pasien saat istirahat dengan 3 nilai kategori
+        - 0: normal
+        - 1: memiliki ST-T wave abnormalitas (T wave inversions and/or ST elevation or depression of > 0.05 mV)
+        - 2: menunjukkan kemungkinan atau pasti hipertrofi ventrikel kiri menurut kriteria Estes
+    8. `thalach` : detak jantung maksimum yang dicapai oleh pasien selama tes olahraga, diukur dalam bpm (denyut per menit)
+    9. `exang` : angina yang diinduksi oleh olahraga (1 = yes; 0 = no)
+    10. `oldpeak` : seberapa banyak ST segmen menurun atau depresi saat melakukan aktivitas fisik dibandingkan saat istirahat
+    11. `slope` : kemiringan segmen ST pada elektrokardiogram (EKG) selama latihan fisik maksimal dengan 3 nilai kategori
+        - 1: naik
+        - 2: datar
+        - 3: turun
+    12. `ca` : jumlah pembuluh darah utama (0-3) yang diwarnai dengan flourosopy
+    13. `thal` : hasil tes thalium scan dengan 3 nilai kategori
+         - 1 = normal
+         - 2 = adanya cacat tetap pada thalassemia
+         - 3 = cacat yang dapat perbaiki
+    14. `target` : memiliki penyakit jantung atau tidak (1 = yes; 0 = no)
+    ''')
+
+    # show dataset shape
+    st.write(f'''
+    **Dataset Shape:** {df.shape}  \nShape ini apa sih, Sob? Jadi, shape ini maksudnya dataset ini punya {df.shape[0]}
+    baris data dan {df.shape[1]} kolom.
+    ''')
+
+    # show dataset count visualization
+    st.write('''
+    **Dataset Count Visualization**
+    
+    Sekarang, kita coba lihat visualisasi dari beberapa kolom penting di dataset ini. Kamu tinggal pilih aja dari dropdown
+    di bawah ini dan tunggu sebentar untuk lihat visualisasinya.
+    ''')
+    views = st.selectbox("Select Visualization", ("", "Target", "Age", "Age by Target"))
+    if views == "Target":
+        st.bar_chart(df.target.value_counts())
+        st.write('''
+        Seperti yang sudah dijelaskan sebelumnya pada Dataset Overview, kolom/fitur `target` jika bernilai 1
+        menunjukkan seseorang terindikasi memiliki penyakit jantung, sedangkan nilai 0 menunjukkan tidak terindikasi
+        memiliki penyakit jantung. Berdasarkan visualisasi di atas, Sobat bisa lihat jumlah orang yang terindikasi
+        memiliki penyakit jantung sejumlah 526 orang, lebih banyak daripada yang tidak terindikasi memiliki penyakit
+        jantung yaitu sejumlah 499 orang.
+        ''')
+    elif views == "Age":
+        st.bar_chart(df['age'].value_counts())
+        st.write('''
+        Sobat semua bisa lihat bahwa data responden ini didominasi oleh usia 50-60 tahun. Hal ini menunjukkan bahwa
+        risiko penyakit jantung cenderung meningkat seiring bertambahnya usia, terutama pada rentang usia tersebut.
+        Tapi ingat ya, penyakit jantung juga bisa menyerang usia yang lebih muda tergantung pada gaya hidup dan faktor risiko lainnya.
+        ''')
+    elif views == "Age by Target":
+        data_grup = df.groupby('age')['target'].value_counts().unstack(fill_value=0)
+        st.bar_chart(data_grup)
+        st.write('''
+        Nah, visualisasi yang ini merupakan kombinasi antara usia dan target. Dari sini, Sobat bisa lihat bahwa
+        yang terindikasi memiliki penyakit jantung tertinggi pada usia 54 tahun, Sob.  Padahal usia ini belum terlalu tua,
+        lho. Bahkan Sobat bisa lihat juga justru yang berusia 29, 34, dan 37 tahun semuanya terindikasi memiliki penyakit jantung.
+        Ini mengingatkan kita semua bahwa penyakit jantung bisa menyerang siapa saja, nggak peduli usia muda atau tua.
+        Tapi sekali lagi, ini hanya berdasarkan data yang ada di dataset ini ya, Sobat.
+        ''')  
+
+elif nav == "Exploratory Data Analysis":
+    #lst = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal', 'target']
+    #df[lst] = df[lst].astype(object)
+
+    st.header("Exploratory Data Analysis")
+    st.write('''
+    Sobat, ketika kita sudah memiliki data, pasti lebih lanjut kita ingin tahu lebih dalam tentang data tersebut, kan? Nah,
+    Exploratory Data Analysis (EDA) ini adalah tahap di mana kita mencoba untuk memahami data lebih dalam lagi. Melalui EDA,
+    kita bisa menemukan pola, tren, dan hubungan antar fitur dalam dataset. Dengan EDA, kita bisa mengidentifikasi anomali,
+    outlier, atau pola yang mungkin mempengaruhi hasil prediksi model machine learning yang akan kita buat nanti. Yuk,
+    kita bahas satu per satu ya, Sobat!
+    ''')  
+
+    st.write('''
+    **1. Menampilkan Informasi Dataset**  
+    Pada tahap awal ini kita coba menampilkan informasi dan summary statistik dari dataset ini. Hal ini penting banget sebagai
+    langkah awal untuk memahami struktur data, tipe data, dan ringkasan statistik dari tiap fitur dalam dataset. Dengan memahami
+    informasi dasar ini, kita bisa menentukan langkah-langkah selanjutnya dalam proses analisis data. Berikut informasi dari dataset ini:
+    ''')  
+    col_describe, col_info = st.columns(2)
+
+    with col_info:
+        st.write('''
+        **Dataset Info**
+        ''')
+        # Tangkap output df.info() yang asli
+        buffer_awal = io.StringIO()
+        df.info(buf=buffer_awal)
+        info_awal_string = buffer_awal.getvalue()
+    
+        # Tampilkan di kolom kiri
+        st.code(info_awal_string)
+    
+    with col_describe:
+        # show dataset description
+        st.write('''
+        **Dataset Description**
+        ''')
+        st.dataframe(df.describe())  
+
+    st.dataframe(df.describe())
+
+    st.write("""
+    Ringkasan statistik ini (biasanya dihasilkan oleh perintah `df.describe()`) memberikan gambaran singkat mengenai
+    distribusi dan skala setiap fitur (kolom) numerik dalam data Anda. Ini adalah alat penting untuk **memahami
+    data Anda** sebelum membangun model.  
+    
+    Kita bisa pahami dari tabel ini:
+    1. `count`: Jumlah baris data yang valid (tidak kosong). Di sini, semua kolom memiliki **1025** data. Berarti kita tidak perlu
+        melakukan penanganan missing value.
+    2. `mean`: Nilai rata-rata dari kolom tersebut. Contoh: Rata-rata usia (`age`) pasien adalah **54.4 tahun**.
+    3. `std`: Standar Deviasi, menunjukkan seberapa tersebar data dari nilai rata-ratanya.
+    4. `min`: Nilai terkecil. Contoh: Usia termuda (`age`) adalah **29 tahun**.
+    5. `max`: Nilai terbesar. Contoh: Usia tertua (`age`) adalah **77 tahun**.
+    6. `25%`, `50%`, `75%`: Kuartil. `50%` (Median) adalah nilai tengah data. 
+    7. Kita bisa lihat 50% pasien berusia di bawah **56 tahun**.
+    8. `target`: Rata-rata (`mean`) dari kolom `target` adalah **0.5132**. Karena targetnya 0 dan 1, ini berarti 
+        sekitar **51.3%** pasien dalam dataset ini memiliki penyakit jantung (target=1).
+    """)  
+
+    st.write('''
+    **1. Menampilkan Boxplot untuk Mendeteksi Outlier**  
+    Outlier ini adalah data yang nilainya jauh berbeda dari nilai-nilai lainnya dalam dataset. Outlier ini bisa terjadi karena
+    kesalahan pengukuran, kesalahan pencatatan data, atau memang data yang benar-benar berbeda. Outlier ini bisa mempengaruhi
+    hasil analisis dan model machine learning yang kita buat nanti. Oleh karena itu, penting banget untuk mendeteksi dan menangani
+    outlier ini. Pada project ini, kita akan menampilkan boxplot untuk melihat outlier pada data numerik. Berikut boxplotnya:
+    ''')
+
+    #Menampilkan boxplot untuk melihat outliers data numerik
+    df_numeric = df.drop(columns=lst)
+    df_numeric.plot(kind = 'box', subplots = True, layout = (2,7), sharex = False, sharey = False, figsize = (20, 10), color = 'k')
+    fig = plt.gcf()
+    st.pyplot(fig)
+    plt.clf()
+
+    st.write('''
+    Naaah, dari boxplot di atas Sobat bisa lihat bahwa ada beberapa gambar boxplot yang memiliki titik-titik di luar boxplot.
+    Titik-titik tersebut adalah outlier. Outlier ini bisa mempengaruhi hasil analisis dan model machine learning yang kita buat nanti.
+    Oleh karena itu, penting banget untuk mendeteksi dan menangani outlier ini. Namun pada EDA ini, kita hanya akan menampilkan boxplot
+    untuk mendeteksi outlier saja ya, Sobat. Untuk penanganan outlier akan kita bahas pada tahap Feature Engineering.
+    ''')  
+
+    st.write('''
+    **2. Memvisualisasikan Distribusi Variabel Numerikal dan Kategorikal**  
+    Selanjutnya, kita akan memvisualisasikan distribusi variabel numerikal dan kategorikal pada dataset ini. Visualisasi ini
+    penting banget karena membantu kita untuk memahami sebaran data, apakah data tersebut normal atau skewed. Dengan memahami
+    distribusi data, kita bisa menentukan teknik feature engineering yang tepat sebelum melatih model machine learning. Berikut
+    visualisasi distribusi dari tiap variabel:   
+    ''')
+
+    col_num, col_cat = st.columns(2)
+    
+    with col_cat:
+        st.write('''
+        **Distribusi Variabel Kategorikal**
+        ''')
+        categorical_col = df[lst]
+        plt.figure(figsize=(12,12))
+        for index, column in enumerate(categorical_col.columns):
+            plt.subplot(4, 3, index+1)
+            sns.countplot(data=categorical_col,x=column, hue='target', palette='magma')
+            plt.xlabel(column.upper(),fontsize=14)
+            plt.ylabel("count", fontsize=14)
+
+        plt.tight_layout(pad = 1.0)
+        fig = plt.gcf()
+        st.pyplot(fig)
+        plt.clf()
+      
+    with col_num:
+        st.write('''
+        **Distribusi Variabel Numerikal**
+        ''')
+        plt.figure(figsize=(16,8))
+        for index,column in enumerate(df_numeric):
+            plt.subplot(2,3,index+1)
+            sns.histplot(data=df_numeric,x=column,kde=True)
+            plt.xticks(rotation = 90)
+        plt.tight_layout(pad = 1.0)
+        fig_num = plt.gcf()  # 1. Ambil figure yang baru Anda buat
+        st.pyplot(fig_num) # 2. Tampilkan di Streamlit
+        plt.clf()  
+
+    st.write('''
+    Dari visualisasi di atas, Sobat bisa lihat bahwa sebagian besar variabel numerikal memiliki distribusi yang
+    mendekati normal, meskipun ada beberapa yang sedikit skewed. Sedangkan untuk variabel kategorikal, distribusi frekuensi 
+    dari masing-masing kategori menunjukkan bahwa beberapa kategori memiliki jumlah yang lebih dominan dibandingkan kategori 
+    lainnya. Dari sini kita bisa pahami bahwa kita nanti harus melakukan penanganan khusus pada variabel-variabel yang 
+    memiliki distribusi yang tidak merata ini.
+    ''')  
+
+    st.write('''
+    **3. Memvisualisasikan Correlation Matrix**  
+    Tahap ini kita akan memvisualisasikan correlation matrix dari dataset ini. Correlation matrix ini penting banget karena
+    membantu kita untuk memahami hubungan antar fitur dalam dataset. Dengan memahami hubungan antar fitur, kita bisa menentukan
+    fitur-fitur yang paling berpengaruh terhadap target variabel. Berikut correlation matrixnya:   
+    ''')  
+
+
+elif nav == 'Data Preprocessing':
+    st.title("Data Preprocessing")
+    st.write('''
+       
+    Halo Sobat, sekarang kita akan masuk lebih lanjut ke tahap Data Preprocessing. Tahap ini penting banget agar
+    data yang dilatih untuk model machine learning itu berkualitas, akurat, konsisten, dan lengkap sehingga nanti
+    bisa menghasilkan prediksi yang akurat. Ada banyak yang bisa dilakukan dalam tahap ini, seperti penanganan
+    missing value, penanganan duplikasi data, dan termasuk pembersihan data yang nggak valid.
+      
+    Sobat semua, mari kita lihat informasi dari dataset kita sebelum kita mulai tahapan preprocessing.
+    ''')
+
+    # Tangkap output df.info() yang asli
+    buffer_awal = io.StringIO()
+    df.info(buf=buffer_awal)
+    info_awal_string = buffer_awal.getvalue()
+
+    # Tampilkan di kolom kiri
+    st.code(info_awal_string)         
+    
+    st.write('''
+    **1. Missing Value**  
+    Sobat, kita semua bisa lihat dari tabel di atas bahwa semua kolom pada dataset terisi `1025 non-null`. Ini artinya tidak ada
+    missing value pada dataset ini, jadi kita nggak perlu melakukan penanganan missing value.
+             
+    **2. Data Cleaning**  
+    Pembersihan data (data cleaning) ini penting banget Sobat, karena data yang kotor atau nggak valid bisa bikin model machine learning
+    yang kita buat jadi nggak akurat. Data yang kotor ini bisa berupa data yang nggak valid, duplikasi data, atau data yang nggak konsisten.
+    Pada project ini, kita akan fokus pembersihan data pada data yang nggak valid. Untuk duplikasi data kita akan bahas pada poin tersendiri
+    ya, Sobat.   
+    
+    Gimana ya biar kita tahu ada data yang tidak valid, Sobat? Ya, betul banget, kita harus paham dulu deskripsi dari tiap kolom/fitur
+    pada dataset ini. Dari penjelasan deskripsi dataset di menu Data Collecting. Untuk memudahkan proses belajar, kita bisa fokus cek
+    data tidak valid dari semua kolom kategorikal saja ya, Sobat. Terlebih dahulu kita coba tampilkan berapa jumlah nilai unik dari tiap
+    kolom kategorikal. Yuk kita lihat datanya di bawah ini:  
+    ''')
+
+    st.dataframe(df.nunique())
+
+    st.write(''' 
+    Nah, dari tabel di atas kita bisa lihat bahwa ada 2 kolom kategorikal yang memiliki nilai unik melebihi deskripsi, yaitu `ca` dan `thal`.
+    Berikut penjelasannya, Sobat:
+    1. Feature `CA`: Memiliki 4 nilai dari rentang 0-3, maka dari itu nilai 4 diubah menjadi NaN (karena seharusnya tidak ada)
+    2. Feature `thal`: Memiliki 3 nilai dari rentang 1-3, maka dari itu nilai 0 diubah menjadi NaN (karena seharusnya tidak ada)
+    ''')
+    views = st.radio("Show Data", ("CA", "Thal"))
+    if views == "CA":
+        st.write('''
+        **Feature CA**
+        
+        Feature CA memiliki 4 nilai dari rentang 0-3, maka dari itu nilai 4 diubah menjadi NaN (karena seharusnya tidak ada)
+        ''')
+        st.dataframe(df.ca.value_counts().to_frame().transpose())
+        st.write('''
+        **Show Data After Cleaning**  
+        Inilah data `ca` setelah nilai 4 diubah menjadi NaN.
+        ''')
+        st.dataframe(df.ca.replace(4, np.nan).value_counts().to_frame().transpose())
+    elif views == "Thal":
+        st.write('''
+        **Feature Thal**
+        
+        Feature Thal memiliki 3 nilai dari rentang 1-3, maka dari itu nilai 0 diubah menjadi NaN (karena seharusnya tidak ada)
+        ''')
+        st.dataframe(df.thal.value_counts().to_frame().transpose())
+        st.write('''
+        **Show Data After Cleaning**  
+        Inilah data `thal` setelah nilai 0 diubah menjadi NaN.
+        ''')
+        st.dataframe(df.thal.replace(0, np.nan).value_counts().to_frame().transpose())
+      
+    st.write('''
+    Karena ada nilai yang diubah menjadi NaN, maka sekarang ada missing value pada dataset ini. Oleh karena itu, kita perlu
+    melakukan penanganan missing value. Cara yang paling umum dan sederhana yang digunakan untuk menangani missing value
+    adalah dengan menghapus semua baris data yang memiliki missing value atau mengisinya dengan nilai `mean`, `median`, atau `mode`.
+    Pada project ini, kita akan mengisi missing value dengan nilai `mode` karena kolom yang memiliki missing value adalah kolom
+    kategorikal yang memiliki batasan nilai tertentu sesuai deskripsi dataset. Berikut contoh scriptnya:
+    ''')  
+    
+    col_ca, col_thal = st.columns(2)
+    with col_ca:
+        st.write('''
+        **Script Penanganan Missing Value CA**
+        ''')
+        st.code('''
+        # Fillna pada kolom 'ca' dengan modus
+        modus_ca = df['ca'].mode()[0]
+        df['ca'] = df['ca'].fillna(modus_ca)
+        ''')
+    
+    with col_thal:
+        st.write('''
+        **Script Penanganan Missing Value Thal**
+        ''')
+        st.code('''
+        # Fillna pada kolom 'thal' dengan modus
+        modus_thal = df['thal'].mode()[0]
+        df['thal'] = df['thal'].fillna(modus_ca)
+        ''')  
+    st.write('''
+    Berikut hasil setelah penanganan missing value:
+    ''')   
+    st.dataframe(df.isnull().sum().to_frame().transpose())  
+
+    st.write(''' 
+    **Penanganan Duplikasi Data**   
+    Sobat, selanjutnya kita coba cek apakah ada duplikasi data pada dataset ini. Duplikasi data ini bisa terjadi karena kesalahan
+    dalam proses pengumpulan data atau kesalahan teknis lainnya. Sobat bisa memeriksa duplikasi data dengan menggunakan fungsi `duplicated()`.
+    Jika ada duplikasi data, kita bisa menghapusnya dengan fungsi `drop_duplicates()`. Berikut contoh scriptnya:
+    ''')
+
+    col_check, col_drop = st.columns(2)
+    with col_check:
+        st.write('''
+        **Cek Duplikasi Data**
+        ''')
+        st.code('''
+        # Cek duplikasi data
+        df.duplicated().sum()
+        ''')  
+        st.write('''
+        **Hasil Cek Duplikasi Data**  
+        Berikut hasil cek duplikasi data pada dataset ini:
+        ''')
+        st.code(df.duplicated().sum())
+        
+    with col_drop:
+        st.write('''
+        **Skrip Drop Duplikasi Data**
+        ''')
+        st.code('''
+        # Menghapus data duplikat
+        df.drop_duplicates(inplace=True)
+        ''')
+        # Hapus duplikasi data
+        df.drop_duplicates(inplace=True)
+        st.write('''
+        **Hasil Cek Duplikasi Data Setelah Dihapus**  
+        Berikut hasil cek duplikasi data pada dataset ini setelah dihapus:
+        ''')
+        st.code(df.duplicated().sum()) 
+
+
+
+elif nav == 'Feature Engineering':
+    st.title("Feature Engineering")  
+    st.write('''
+    Kita lanjut ya, Sobat. Sekarang kita akan masuk ke tahap Feature Engineering. Tahap ini juga penting banget, Sob.
+    Pada tahap ini, kita akan melakukan beberapa hal seperti mengubah tipe data, memisahkan kolom numerik dengan
+    kolom kategorikal, dan pelabelan data kategorikal agar lebih mudah dipahami. Hal ini semua dilakukan agar data lebih
+    berkualitas dan sesuai dengan kebutuhan model machine learning yang akan kita buat nanti. Yuk, kita bahas satu per satu!
+    ''')
+    st.write('''
+    **1. Mengubah kolom kategorikal menjadi object**  
+    Pada bagian Dataset Description di menu Data Collecting, kita sudah melihat deskripsi statistik dari tiap kolom.
+    Dari situ kita bisa lihat bahwa ada beberapa kolom yang sebenarnya bersifat kategorikal, tapi pada deskripsi statistik
+    muncul sebagai numerik. Oleh karena itu, kita perlu mengubah tipe data beberapa kolom menjadi `object` agar lebih
+    sesuai dengan sifat aslinya.  
+    ''')
+
+    # --- Menyiapkan Kolom ---
+    col1, col2 = st.columns(2)
+
+    # --- Kolom Kiri (SEBELUM Diubah) ---
+    with col1:
+        st.write('''
+        **Sebelum diubah**
+        ''')
+    
+        # Tangkap output df.info() yang asli
+        buffer_awal = io.StringIO()
+        df.info(buf=buffer_awal)
+        info_awal_string = buffer_awal.getvalue()
+    
+        # Tampilkan di kolom kiri
+        st.code(info_awal_string)
+    
+    lst = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal', 'target']
+    df[lst] = df[lst].astype(object)
+
+    with col2:
+        st.write('''
+        **Sesudah diubah**
+        ''')
+    
+        # Tangkap output df.info() yang baru
+        buffer_akhir = io.StringIO()
+        df.info(buf=buffer_akhir) # 'data' sekarang sudah termodifikasi
+        info_akhir_string = buffer_akhir.getvalue()
+    
+        # Tampilkan di kolom kanan
+        st.code(info_akhir_string)
+
+    st.write('''
+    **3. Memisahkan kolom numerik dengan kolom kategorikal**  
+    Selanjutnya agar lebih rapi dan memudahkan kita dalam mengolah data, kita bisa pisahkan kolom numerik
+    dengan kolom kategorikal, Sobat. Berikut contoh scriptnya:
+    ''')
+    script3 = '''
+    numerical_col = df.select_dtypes(exclude=['object'])
+    categorical_col = df.select_dtypes(exclude=['number'])
+    '''
+    st.code(script3)
+
+    script3
+
+    st.write('''
+    **4. Pelabelan Data Kategorikal**  
+    Pada Dataset Description di menu Data Collecting, kita sudah melihat deskripsi statistik dari tiap kolom, sekarang
+    kita akan melakukan pelabelan pada data kategorikal sesuai dengan deskripsi dataset agar lebih mudah dipahami.
+    Berikut contoh scriptnya:
+    ''')
+    script4 = '''
+    data['sex'] = data['sex'].replace({1: 'Male',
+                                       0: 'Female'})
+    data['cp'] = data['cp'].replace({0: 'typical angina',
+                                     1: 'atypical angina',
+                                     2: 'non-anginal pain',
+                                     3: 'asymtomatic'})
+    data['fbs'] = data['fbs'].replace({0: 'No',
+                                       1: 'Yes'})
+    data['restecg'] = data['restecg'].replace({0: 'normal',
+                                               1: 'probable or definite left ventricular hypertrophy',
+                                               2: 'ST-T Wave abnormal'})
+    data['exang'] = data['exang'].replace({0: 'No',
+                                           1: 'Yes'})
+    data['slope'] = data['slope'].replace({0: 'downsloping',
+                                           1: 'flat',
+                                           2: 'upsloping'})
+    data['thal'] = data['thal'].replace({1: 'normal',
+                                         2: 'fixed defect',
+                                         3: 'reversable defect'})
+    data['ca'] = data['ca'].replace({0: 'Number of major vessels: 0',
+                                     1: 'Number of major vessels: 1',
+                                     2: 'Number of major vessels: 2',
+                                     3: 'Number of major vessels: 3'})
+    data['target'] = data['target'].replace({0: 'No disease',
+                                             1: 'Disease'})
+    '''
+    st.code(script4)
+
+    
+
+elif nav == "Modelling":
+    st.header("Modelling")
+    var = st.selectbox("Select Model", ("Before Tuning", "After Tuning", "ROC-AUC", "Kesimpulan"))
+    if var == "Before Tuning":
+        accuracy_score = {
+            'Logistic Regression': 0.85,
+            'Decision Tree': 0.78,
+            'Random Forest': 0.87,
+            'MLP Classifier': 0.87,
+        }
+        st.write('''
+        **Model Before Tuning**
+        
+        Berikut adalah hasil akurasi dari model sebelum dilakukan tuning.
+        ''')
+        st.dataframe(pd.DataFrame(accuracy_score.items(), columns=['Model', 'Accuracy Score']))
+        st.write('''
+        Berdasarkan hasil akurasi dari model sebelum dilakukan tuning, dapat dilihat bahwa model dengan akurasi tertinggi
+        adalah Random Forest dan MLP Classifier dengan akurasi 0.87.
+        ''')
+
+    elif var == "After Tuning":
+        accuracy_score = {
+            'Logistic Regression': 0.87,
+            'Decision Tree': 0.83,
+            'Random Forest': 0.88,
+            'MLP Classifier': 0.89,
+        }
+        st.write('''
+        **Model After Tuning**
+        
+        Berikut adalah hasil akurasi dari model setelah dilakukan tuning.
+        ''')
+        st.dataframe(pd.DataFrame(accuracy_score.items(), columns=['Model', 'Accuracy Score']))
+        st.write('''
+        Berdasarkan hasil akurasi dari model setelah dilakukan tuning, dapat dilihat bahwa model dengan akurasi tertinggi
+        adalah MLP Classifier dengan akurasi 0.89.
+        ''')
+
+    elif var == "Kesimpulan":
+        st.write('''
+        **Kesimpulan**
+        
+        Berdasarkan hasil akurasi dari model sebelum dan setelah dilakukan tuning, dapat disimpulkan bahwa model dengan
+        akurasi tertinggi adalah MLP Classifier dengan akurasi 0.89. Jika kamu mendownload model ini, maka kamu akan mendapatkan
+        di link berikut ini [Download Model](https://drive.google.com/file/d/1-8Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z/view?usp=sharing).
+        ''')
+
+elif nav == 'Prediction':
+    st.header("My Apps")
+    heart()
+
+elif nav == "About":
+    st.title("About Me")
+    st.image("https://avatars.githubusercontent.com/u/59464302?v=4", width=200)
+    st.write('''
+    **Budi Raharjo SH**
+    
+    Saya adalah seorang mahasiswa di salah satu perguruan tinggi di Indonesia. Saya mengambil jurusan Teknik Informatika.
+    Saya mengikuti kelas Machine Learning & AI di DQLab Academy. Ini adalah capstone project saya.
+    ''')
+    st.write('''
+    **Contact Me**
+    
+    - [LinkedIn](##)
+    - [Github](##)
+    - [Instagram](##)
+    - [Facebook](##)
+    - [Twitter](##)
+    ''')
+
+    select_item = st.selectbox("My Project Preview", ('', 'Iris Prediction', 'Housing Price Prediction'))
+    if select_item == "Iris Prediction":
+        st.header("Ini Contoh Iris")
+    elif select_item == "Housing Price Prediction":
+        st.header("Ini Contoh Housing Price Prediction")
